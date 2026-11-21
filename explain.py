@@ -32,6 +32,7 @@ from utils.explain import (deletion_curve, explain, permutation_importance,
                            top_features)
 from utils.plotting import (AQUA, BLUE, INK, INK_2, MODEL_COLORS, ORANGE,
                             SEQUENTIAL)
+from utils.narrate import class_medians, reasons
 from utils.preprocessing import (load_dataset, split_indices, standardize,
                                  to_matrix)
 
@@ -104,6 +105,8 @@ def main():
         "prediction": [classes[i] for i in pred],
         "confidence": proba.max(axis=1).round(4),
         "top_features": top_features(relevance, features),
+        "reason": reasons(Z_test, relevance, proba, features, classes,
+                          class_medians(Z_train, y_train, len(classes))),
     })
     flows = pd.concat([flows, pd.DataFrame(relevance.round(4), columns=features)], axis=1)
     flows.to_csv(f"{args.out}/test_flow_explanations.csv", index=False)
@@ -354,6 +357,10 @@ def write_summary(imp, curves, faithfulness, cost, flows, examples, features, ou
         faith_table.to_markdown(index=False),
         "## Example flows",
         flows.loc[examples, ["true", "prediction", "confidence", "top_features"]].to_markdown(index=False),
+        "### The same flows in plain language",
+        "Features named = the model's own top-3 attention (see deletion test above); the "
+        "comparison with typical values per class comes from the training split.",
+        "\n".join(f"- *True {flows.true[i]}:* {flows.reason[i]}" for i in examples),
         "## Figures",
         "- `global_importance.png`\n- `attention_by_class.png`\n- `deletion_test.png`\n"
         "- `faithfulness_ft_vs_rf.png`\n- `example_flows.png`",

@@ -7,6 +7,7 @@ import json
 import torch
 from sklearn.metrics import classification_report, confusion_matrix
 
+from utils.narrate import class_medians
 from utils.preprocessing import (LABEL_COL, fit_standardizer, prepare_dataset,
                                  split_indices, standardize)
 from utils.training import (BATCH_SIZE, EPOCHS, LR, MODEL_CONFIG, device,
@@ -93,6 +94,8 @@ torch.save({
     "classes": classes,
     "mean": mean.tolist(),
     "std": std.tolist(),
+    # typical value of each feature per class, for plain-language explanations
+    "class_medians": class_medians(Z[tr], y_train, len(classes)),
 }, args.model_out)
 
 print(f"[INFO] Model saved to {args.model_out}")

@@ -19,6 +19,7 @@ import torch
 
 from models.ft_transformer import FTTransformer
 from utils.explain import explain, top_features
+from utils.narrate import reasons
 from utils.preprocessing import (LABEL_MAP, fix_iscx_headers, standardize,
                                  to_matrix)
 
@@ -41,9 +42,11 @@ def predict_df(df, model, ckpt, with_explanations=False):
     """Adds `prediction` and `confidence` columns to a DataFrame of flow features.
 
     with_explanations also adds `top_features`: the three features the model
-    attended to most for that flow (attention rollout).
+    attended to most for that flow (attention rollout), and `reason`: the same
+    in plain language, compared with typical values of each class.
     """
-    X = standardize(to_matrix(df, ckpt["features"]), ckpt["mean"], ckpt["std"])
+    Z = to_matrix(df, ckpt["features"])
+    X = standardize(Z, ckpt["mean"], ckpt["std"])
     probs, relevance = explain(model, X)
 
     df = df.copy()
@@ -51,6 +54,8 @@ def predict_df(df, model, ckpt, with_explanations=False):
     df["confidence"] = probs.max(axis=1).round(4)
     if with_explanations:
         df["top_features"] = top_features(relevance, ckpt["features"])
+        df["reason"] = reasons(Z, relevance, probs, ckpt["features"], ckpt["classes"],
+                               ckpt.get("class_medians"))
     return df
 
 
@@ -135,6 +140,10 @@ if __name__ == "__main__":
     shown += ["top_features"] if args.explain else []
     print("\n[RESULT] First flows:")
     print(results[shown].head(10).to_string(index=False))
+    if args.explain:
+        print("\n[RESULT] Reasons (first 5 flows):")
+        for i, text in enumerate(results["reason"].head(5), 1):
+            print(f"  flow {i}: {text}")
 
     if args.by_device:
         if "src_ip" not in results.columns:
