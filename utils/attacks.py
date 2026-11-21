@@ -9,43 +9,66 @@ import torch.nn.functional as F
 
 from utils.preprocessing import FEATURES, from_matrix
 
-RATE_FEATURES = ["flowPktsPerSecond", "flowBytesPerSecond"]
-TIME_FEATURES = [f for f in FEATURES if f not in RATE_FEATURES]
-_TIME = np.array([f in TIME_FEATURES for f in FEATURES])
-_PKTS = FEATURES.index("flowPktsPerSecond")
-_BYTES = FEATURES.index("flowBytesPerSecond")
+def _shaping_columns(features):
+    """Which columns a traffic-shaping sender changes, for either feature set."""
+    time = np.array([f.endswith("_ms") or f in ("duration",) or "iat" in f
+                     or f.split("_")[-1] in ("active", "idle") for f in features])
+    size = np.array([f.endswith("_ps") or f.endswith("_bytes") for f in features])
+    pkts_rate = np.array([f == "flowPktsPerSecond" for f in features])
+    bytes_rate = np.array([f == "flowBytesPerSecond" for f in features])
+    return time, size, pkts_rate, bytes_rate
 
 
 # ==========================================
 # 1. Traffic shaping (problem-space, realistic)
 # ==========================================
-def shape_traffic(Z, slowdown, padding):
+def shape_traffic(Z, slowdown, padding, features=FEATURES):
     """Feature vector of the same flow after the sender
 
     * slows it down by `slowdown` (every gap stretched, e.g. 1.5 = 50% slower), and
     * pads packets so the flow carries `padding` x the bytes (1.25 = 25% overhead).
 
-    Times scale by `slowdown`, packet rate by 1/slowdown and byte rate by
-    padding/slowdown. Absent statistics (-1) stay absent. Approximation: in a
+    slowdown / padding are scalars or one value per flow. Times scale by
+    slowdown, packet sizes and byte counts by padding, packet rate by
+    1/slowdown and byte rate by padding/slowdown. Packet counts and TCP flags
+    are unchanged. Absent ISCX statistics (-1) stay absent. Approximation: in a
     real capture, stretched gaps that cross the 1 s activity threshold would
     also create new idle periods.
     """
-    raw = from_matrix(Z)
+    time, size, pkts_rate, bytes_rate = _shaping_columns(features)
+    s = np.broadcast_to(np.asarray(slowdown, dtype=np.float64).reshape(-1, 1), (len(Z), 1))
+    p = np.broadcast_to(np.asarray(padding, dtype=np.float64).reshape(-1, 1), (len(Z), 1))
+
+    raw = from_matrix(Z).copy()
     present = ~np.isclose(raw, -1)
-    raw = raw.copy()
-    raw[:, _TIME] = np.where(present[:, _TIME], raw[:, _TIME] * slowdown, raw[:, _TIME])
-    raw[:, _PKTS] /= slowdown
-    raw[:, _BYTES] *= padding / slowdown
+    factor = np.ones_like(raw)
+    factor[:, time] = s
+    factor[:, size] = p
+    factor[:, pkts_rate] = 1 / s
+    factor[:, bytes_rate] = p / s
+    raw = np.where(present, raw * factor, raw)
     return np.sign(raw) * np.log1p(np.abs(raw))
 
 
-def min_slowdown_to_evade(predict, Z, slowdowns, paddings, target):
+def augment_with_shaping(Z, y, features=FEATURES, max_slowdown=3.0, max_padding=2.0, seed=0):
+    """Defense: one randomly shaped copy of every training flow, same label.
+
+    Shaping both classes (not only VPN) teaches the model that slowing down or
+    padding traffic does not change what it is, instead of "slow means VPN".
+    """
+    rng = np.random.default_rng(seed)
+    s = rng.uniform(1.0, max_slowdown, len(Z))
+    p = rng.uniform(1.0, max_padding, len(Z))
+    return np.concatenate([Z, shape_traffic(Z, s, p, features)]), np.concatenate([y, y])
+
+
+def min_slowdown_to_evade(predict, Z, slowdowns, paddings, target, features=FEATURES):
     """For each flow, the smallest slowdown (with any padding <= max) that makes
     `predict` output `target`. np.inf when no budget in the grid works."""
     best = np.full(len(Z), np.inf)
     for s in slowdowns:
         for p in paddings:
-            evaded = predict(shape_traffic(Z, s, p)) == target
+            evaded = predict(shape_traffic(Z, s, p, features)) == target
             best = np.where(evaded & np.isinf(best), s, best)
     return best
 
