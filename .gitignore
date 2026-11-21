@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.pyc
+# VNAT pcaps and extracted features are large; keep them on the lab machine
+data/vnat*/
+data/vnat_features*.csv
+*.pcap
+*.pcapng

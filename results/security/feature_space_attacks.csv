@@ -1,0 +1,31 @@
+eps,attack,model,evasion_rate
+0.05,Black-box random search,FT-Transformer,0.2542113323124043
+0.05,Black-box random search,Random Forest,0.5411585365853658
+0.05,White-box PGD,FT-Transformer,0.19065849923430322
+0.05,Transfer from FT-Transformer,Random Forest,0.3338595106550908
+0.05,Transfer from Random Forest,FT-Transformer,0.13654301499605367
+0.05,Transfer from FT-Transformer (PGD),Random Forest,0.3283346487766377
+0.1,Black-box random search,FT-Transformer,0.6255742725880551
+0.1,Black-box random search,Random Forest,0.8003048780487805
+0.1,White-box PGD,FT-Transformer,0.5390505359877489
+0.1,Transfer from FT-Transformer,Random Forest,0.38595106550907654
+0.1,Transfer from Random Forest,FT-Transformer,0.3772691397000789
+0.1,Transfer from FT-Transformer (PGD),Random Forest,0.39621152328334647
+0.25,Black-box random search,FT-Transformer,0.9762633996937213
+0.25,Black-box random search,Random Forest,0.9862804878048781
+0.25,White-box PGD,FT-Transformer,0.8683001531393568
+0.25,Transfer from FT-Transformer,Random Forest,0.7158642462509865
+0.25,Transfer from Random Forest,FT-Transformer,0.7900552486187845
+0.25,Transfer from FT-Transformer (PGD),Random Forest,0.606156274664562
+0.5,Black-box random search,FT-Transformer,1.0
+0.5,Black-box random search,Random Forest,0.9992378048780488
+0.5,White-box PGD,FT-Transformer,0.9938744257274119
+0.5,Transfer from FT-Transformer,Random Forest,0.7861089187056038
+0.5,Transfer from Random Forest,FT-Transformer,0.8374112075769534
+0.5,Transfer from FT-Transformer (PGD),Random Forest,0.7119179163378059
+1.0,Black-box random search,FT-Transformer,1.0
+1.0,Black-box random search,Random Forest,1.0
+1.0,White-box PGD,FT-Transformer,1.0
+1.0,Transfer from FT-Transformer,Random Forest,0.8429360694554064
+1.0,Transfer from Random Forest,FT-Transformer,0.9447513812154696
+1.0,Transfer from FT-Transformer (PGD),Random Forest,0.8082083662194159
