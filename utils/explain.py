@@ -23,11 +23,13 @@ def attention_rollout(attn):
 
 def explain(model, X, batch_size=1024):
     """Returns (probabilities, per-feature relevance) for every row of X."""
+    model_device = next(model.parameters()).device
     probs, relevance = [], []
     for start in range(0, len(X), batch_size):
-        logits, attn = model.forward_with_attention(torch.tensor(X[start:start + batch_size]))
-        probs.append(torch.softmax(logits, dim=1).numpy())
-        relevance.append(attention_rollout(attn))
+        xb = torch.tensor(X[start:start + batch_size]).to(model_device)
+        logits, attn = model.forward_with_attention(xb)
+        probs.append(torch.softmax(logits.float(), dim=1).cpu().numpy())
+        relevance.append(attention_rollout(attn.float().cpu()))
     return np.concatenate(probs), np.concatenate(relevance)
 
 

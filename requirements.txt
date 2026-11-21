@@ -3,6 +3,9 @@ numpy
 scikit-learn
 torch
 dpkt
+nfstream
+xgboost
+shap
 tabulate
 matplotlib
 scipy

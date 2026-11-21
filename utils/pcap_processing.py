@@ -17,7 +17,7 @@ import dpkt
 import numpy as np
 import pandas as pd
 
-from utils.preprocessing import FEATURES
+from utils.preprocessing import FEATURES, NFSTREAM_FEATURES
 
 FLOW_TIMEOUT_US = 15_000_000
 ACTIVITY_TIMEOUT_US = 1_000_000
@@ -173,3 +173,31 @@ def pcap_to_df(pcap_file):
     columns = ["src_ip", "src_port", "dst_ip", "dst_port", "protocol",
                "start_time", "packets", "bytes"] + FEATURES
     return pd.DataFrame(rows, columns=columns).sort_values("start_time", ignore_index=True)
+
+
+def pcap_to_df_nfstream(pcap_file, idle_timeout=120, active_timeout=1800):
+    """Split a capture into flows with NFStream and keep its behavioural features.
+
+    Returns the same flow identifiers as pcap_to_df plus every column in
+    NFSTREAM_FEATURES. Identifier columns are for reporting only; the model
+    never sees them.
+    """
+    from nfstream import NFStreamer
+
+    df = NFStreamer(source=str(pcap_file), statistical_analysis=True,
+                    idle_timeout=idle_timeout, active_timeout=active_timeout).to_pandas()
+    if df.empty:
+        return pd.DataFrame(columns=["src_ip", "src_port", "dst_ip", "dst_port", "protocol",
+                                     "start_time", "packets", "bytes"] + NFSTREAM_FEATURES)
+
+    meta = pd.DataFrame({
+        "src_ip": df.src_ip, "src_port": df.src_port,
+        "dst_ip": df.dst_ip, "dst_port": df.dst_port,
+        "protocol": df.protocol.map({6: "TCP", 17: "UDP"}).fillna(df.protocol.astype(str)),
+        "start_time": pd.to_datetime(df.bidirectional_first_seen_ms, unit="ms"),
+        "packets": df.bidirectional_packets, "bytes": df.bidirectional_bytes,
+    })
+    return pd.concat([meta, df[NFSTREAM_FEATURES]], axis=1)
+
+
+EXTRACTORS = {"iscx": pcap_to_df, "nfstream": pcap_to_df_nfstream}

@@ -75,8 +75,9 @@ def random_search_attack(proba, X, source, eps, iters=300, seed=0):
 
 def pgd_attack(model, X, source, eps, steps=50):
     """White-box L-inf PGD on the FT-Transformer: maximizes the loss of `source`."""
-    x0 = torch.tensor(X)
-    target = torch.full((len(X),), source, dtype=torch.long)
+    model_device = next(model.parameters()).device
+    x0 = torch.tensor(X).to(model_device)
+    target = torch.full((len(X),), source, dtype=torch.long, device=model_device)
     step = 2.5 * eps / steps
     x = x0 + torch.empty_like(x0).uniform_(-eps, eps)
     for _ in range(steps):
@@ -85,4 +86,4 @@ def pgd_attack(model, X, source, eps, steps=50):
         grad, = torch.autograd.grad(loss, x)
         x = x.detach() + step * grad.sign()
         x = torch.min(torch.max(x, x0 - eps), x0 + eps)
-    return x.detach().numpy()
+    return x.detach().cpu().numpy()
