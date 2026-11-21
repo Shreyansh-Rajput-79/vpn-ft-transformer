@@ -163,9 +163,10 @@ def main():
 # ==========================================
 # 3. Figures
 # ==========================================
-def plot_global(imp, out):
-    order = imp.sort_values("ft_permutation").index  # most important at the top
-    fig, axes = plt.subplots(1, 4, figsize=(16, 0.27 * len(imp) + 2), sharey=True)
+def plot_global(imp, out, top_n=25):
+    # Most important at the top; with many features (NFStream) show the top_n only.
+    order = imp.sort_values("ft_permutation").index[-top_n:]
+    fig, axes = plt.subplots(1, 4, figsize=(16, 0.27 * len(order) + 2.2), sharey=True)
     panels = [
         ("FT-Transformer: attention", "mean share of CLS attention (%)",
          imp.loc[order, "ft_attention"] * 100, None, BLUE),
@@ -183,9 +184,10 @@ def plot_global(imp, out):
         ax.set_xlabel(xlabel)
         ax.grid(axis="y", visible=False)
         ax.axvline(0, color=INK_2, linewidth=0.8)
-    fig.suptitle("Which features drive the decision?  (sorted by FT-Transformer permutation importance)",
+    shown = f"top {len(order)} of {len(imp)} features, " if len(order) < len(imp) else ""
+    fig.suptitle(f"Which features drive the decision?  ({shown}sorted by FT-Transformer permutation importance)",
                  x=0.01, ha="left", fontsize=12, fontweight="bold")
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
     fig.savefig(f"{out}/global_importance.png", dpi=160)
     plt.close(fig)
 
@@ -250,7 +252,7 @@ def plot_faithfulness(faithfulness, out):
     axes[0].set_ylabel("confidence in original prediction (%)")
     fig.suptitle("Explanation faithfulness: bigger gap = explanation points at what the model really uses",
                  x=0.01, ha="left", fontsize=12, fontweight="bold")
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
     fig.savefig(f"{out}/faithfulness_ft_vs_rf.png", dpi=160)
     plt.close(fig)
 

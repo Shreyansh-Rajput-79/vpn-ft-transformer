@@ -150,7 +150,8 @@ def plot_shaping(shaping, out):
                 curves = np.array(rows[f"{mode} curve"].tolist()) * 100
                 mean, std = curves.mean(0), curves.std(0)
                 ax.plot(SLOWDOWNS, mean, color=color, linewidth=2, label=name)
-                ax.fill_between(SLOWDOWNS, mean - std, mean + std, color=color, alpha=0.15)
+                ax.fill_between(SLOWDOWNS, np.clip(mean - std, 0, 100), np.clip(mean + std, 0, 100),
+                                color=color, alpha=0.15)
                 ax.annotate(f"{name} ({mean[-1]:.0f}%)", (SLOWDOWNS[-1], mean[-1]), xytext=(6, 0),
                             textcoords="offset points", va="center", color=INK, fontsize=8.5)
             ax.set_title(f"{mode} - {variant} models")
@@ -162,7 +163,7 @@ def plot_shaping(shaping, out):
     n = shaping.seed.nunique()
     fig.suptitle(f"Traffic-shaping attack (mean ± std over {n} seed{'s' if n > 1 else ''})",
                  x=0.01, ha="left", fontsize=12, fontweight="bold")
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
     fig.savefig(f"{out}/shaping_attack.png", dpi=160)
     plt.close(fig)
 
