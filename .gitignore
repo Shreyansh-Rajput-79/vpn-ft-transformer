@@ -6,3 +6,5 @@ data/vnat*/
 data/vnat_features*.csv
 *.pcap
 *.pcapng
+# NFStream temp files left by interrupted runs
+nfstream-*.csv
