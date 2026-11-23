@@ -97,6 +97,17 @@ commercial apps over TCP) may not be recognised. That is a known limitation.
 
 To measure accuracy on your own recordings: `python score_captures.py --help`.
 
+**No VPN at hand?** `tools/demo_tunnel.py` is a small encrypted UDP tunnel for demos
+(not a real VPN). On Windows, with Npcap installed, run in three terminals:
+```powershell
+python tools/demo_tunnel.py --remote proof.ovh.net:443
+python predict_live.py -i \Device\NPF_Loopback --bpf "udp port 1195" -m models/vnat_noflags_model.pth --trace 1
+curl.exe --resolve proof.ovh.net:443:127.0.0.1 https://proof.ovh.net/files/10Mb.dat -o NUL --max-time 25
+```
+Result in our test: classified **Non-VPN** (missed). The explanation shows why: the tunnel's
+small control packets (76 bytes) never occur in VNAT's OpenVPN traffic. See
+`results/FINAL_RESULTS.md`, section 8.
+
 ## 4. Which model to use
 
 | File | Task | Features |
