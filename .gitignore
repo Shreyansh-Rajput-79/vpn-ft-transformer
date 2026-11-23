@@ -1,13 +1,18 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
-# VNAT pcaps and extracted features are large; keep them on the lab machine
+# Raw VNAT pcaps and the pre-cleaning feature files stay local (large).
+# The cleaned feature files data/vnat_features.csv and data/vnat_nfstream.csv ARE included.
 data/vnat*/
-data/vnat_features*.csv
-data/vnat_nfstream*.csv
+data/*_raw.csv
 *.pcap
 *.pcapng
+!samples/*.pcap
 # NFStream temp files left by interrupted runs
 nfstream-*.csv
 # Console logs of pipeline runs (very large; results are in the summary files)
 results/*.log
+# Your own outputs from the demo commands
+out.csv
+live.csv

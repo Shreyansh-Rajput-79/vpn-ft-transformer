@@ -7,7 +7,7 @@
 # Log of everything: results\vnat_run.log
 
 param(
-    [Parameter(Mandatory = $true)][string]$VnatDir,
+    [string]$VnatDir = "",   # only needed to rebuild data\vnat_*.csv from the VNAT pcaps
     [int]$TuneTrials = 20,
     [int]$TuneEpochs = 60,   # same as final training, so trials are not cut short
     [string]$Python = ".\venv\Scripts\python.exe"
@@ -15,6 +15,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $py = $Python
+if (-not (Test-Path $py)) { $py = "python" }   # no venv: use the python on PATH
+if (-not $VnatDir -and -not ((Test-Path "data\vnat_features.csv") -and (Test-Path "data\vnat_nfstream.csv"))) {
+    throw "data\vnat_*.csv not found: pass -VnatDir D:\path\to\VNAT to build them from the pcaps."
+}
 New-Item -ItemType Directory -Force results | Out-Null
 $log = "results\vnat_run.log"
 
