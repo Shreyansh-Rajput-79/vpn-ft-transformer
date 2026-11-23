@@ -4,7 +4,10 @@ __pycache__/
 # VNAT pcaps and extracted features are large; keep them on the lab machine
 data/vnat*/
 data/vnat_features*.csv
+data/vnat_nfstream*.csv
 *.pcap
 *.pcapng
 # NFStream temp files left by interrupted runs
 nfstream-*.csv
+# Console logs of pipeline runs (very large; results are in the summary files)
+results/*.log

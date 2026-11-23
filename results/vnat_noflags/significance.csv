@@ -1,0 +1,4 @@
+comparison,mean_diff_per_capture_file,ci95_low,ci95_high,units_better,units_worse,units_tied,p_wilcoxon,seed_diff_mean,seed_diff_std,p_holm,verdict
+FT-Transformer - Logistic Regression,0.0004284368250705135,0.0,0.0012721560421676045,2,0,82,0.17971249487899976,0.00011917175629376775,0.00026647614807090306,0.5391374846369993,no significant difference
+FT-Transformer - Random Forest,0.0,0.0,0.0,0,0,84,1.0,0.0,0.0,1.0,no significant difference
+FT-Transformer - XGBoost,0.0,0.0,0.0,0,0,84,1.0,0.0,0.0,1.0,no significant difference

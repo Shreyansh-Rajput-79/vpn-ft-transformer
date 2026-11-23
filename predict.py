@@ -6,6 +6,7 @@ Usage:
     python predict.py capture.pcap -o out.csv    # also save per-flow results
     python predict.py capture.pcap --explain     # add the top features behind each decision
     python predict.py hotspot.pcap --by-device   # per-device and device-to-device summary
+    python predict.py capture.pcap -m models/vnat_noflags_model.pth --trace 1   # every stage for 1 flow
 """
 # ==========================================
 # 1. Imports
@@ -19,7 +20,7 @@ import torch
 
 from models.ft_transformer import FTTransformer
 from utils.explain import explain, top_features
-from utils.narrate import reasons
+from utils.narrate import plain_reasons, reasons
 from utils.preprocessing import (LABEL_MAP, fix_iscx_headers, standardize,
                                  to_matrix)
 
@@ -43,7 +44,8 @@ def predict_df(df, model, ckpt, with_explanations=False):
 
     with_explanations also adds `top_features`: the three features the model
     attended to most for that flow (attention rollout), and `reason`: the same
-    in plain language, compared with typical values of each class.
+    in plain language, compared with typical values of each class; `explanation`: what
+    those values mean for a non-specialist (`explanation_text`: the same on several lines).
     """
     Z = to_matrix(df, ckpt["features"])
     X = standardize(Z, ckpt["mean"], ckpt["std"])
@@ -56,14 +58,18 @@ def predict_df(df, model, ckpt, with_explanations=False):
         df["top_features"] = top_features(relevance, ckpt["features"])
         df["reason"] = reasons(Z, relevance, probs, ckpt["features"], ckpt["classes"],
                                ckpt.get("class_medians"))
+        df["explanation"] = plain_reasons(Z, relevance, probs, ckpt["features"], ckpt["classes"],
+                                          ckpt.get("class_medians"))
+        df["explanation_text"] = plain_reasons(Z, relevance, probs, ckpt["features"], ckpt["classes"],
+                                               ckpt.get("class_medians"), multiline=True)
     return df
 
 
 def load_input(path, feature_set):
     suffix = Path(path).suffix.lower()
     if suffix in (".pcap", ".pcapng", ".cap"):
-        from utils.pcap_processing import EXTRACTORS
-        df = EXTRACTORS[feature_set](path)
+        from utils.pcap_processing import EXTRACTOR_FOR, EXTRACTORS
+        df = EXTRACTORS[EXTRACTOR_FOR[feature_set]](path)
         print(f"[INFO] Extracted {len(df)} TCP/UDP flows ({feature_set} features) from {path}")
     elif suffix == ".csv":
         df = fix_iscx_headers(pd.read_csv(path))
@@ -114,6 +120,9 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--model", default="models/model.pth")
     parser.add_argument("-o", "--output", help="write per-flow predictions to this CSV")
     parser.add_argument("--explain", action="store_true", help="add the top features behind each prediction")
+    parser.add_argument("--trace", type=int, default=0, metavar="N",
+                        help="print every pipeline stage for the first N flows (pcap input; "
+                             "DNS and other background flows are skipped)")
     parser.add_argument("--by-device", action="store_true",
                         help="summarize per local device and per device pair (pcap input)")
     args = parser.parse_args()
@@ -122,6 +131,16 @@ if __name__ == "__main__":
     df = load_input(args.input, ckpt["feature_set"])
     if df.empty:
         raise SystemExit("[ERROR] No flows found in input.")
+
+    if args.trace:
+        from build_vnat_dataset import BACKGROUND_PORTS
+        from utils.trace import trace_flow
+        fg = df
+        if "src_port" in df.columns:
+            fg = df[df.protocol.isin(["TCP", "UDP"]) & ~df.src_port.isin(BACKGROUND_PORTS)
+                    & ~df.dst_port.isin(BACKGROUND_PORTS)]
+        for n, (_, row) in enumerate(fg.head(args.trace).iterrows(), 1):
+            trace_flow(n, row.to_dict(), model, ckpt, source=Path(args.input).name)
 
     results = predict_df(df, model, ckpt, with_explanations=args.explain)
 
@@ -142,8 +161,8 @@ if __name__ == "__main__":
     print(results[shown].head(10).to_string(index=False))
     if args.explain:
         print("\n[RESULT] Reasons (first 5 flows):")
-        for i, text in enumerate(results["reason"].head(5), 1):
-            print(f"  flow {i}: {text}")
+        for i, text in enumerate(results["explanation_text"].head(5), 1):
+            print(f"\n  flow {i}: {text}")
 
     if args.by_device:
         if "src_ip" not in results.columns:
@@ -155,5 +174,5 @@ if __name__ == "__main__":
         print(pairs.to_string() if pairs is not None else "  none (no flows between two local addresses)")
 
     if args.output:
-        results.to_csv(args.output, index=False)
+        results.drop(columns=["explanation_text"], errors="ignore").to_csv(args.output, index=False)
         print(f"\n[INFO] Saved predictions to {args.output}")

@@ -16,8 +16,10 @@ WEIGHT_DECAY = 1e-4
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Mixed precision on GPU: bf16 where supported (no loss scaling needed), else fp16.
-_AMP_DTYPE = (torch.bfloat16 if device.type == "cuda" and torch.cuda.is_bf16_supported()
+# Mixed precision on GPU: bf16 where the hardware has it (no loss scaling needed), else fp16.
+# including_emulation=False: older GPUs (e.g. GTX 1080 Ti) only emulate bf16, which is slow.
+_AMP_DTYPE = (torch.bfloat16 if device.type == "cuda"
+              and torch.cuda.is_bf16_supported(including_emulation=False)
               else torch.float16)
 _USE_AMP = device.type == "cuda"
 

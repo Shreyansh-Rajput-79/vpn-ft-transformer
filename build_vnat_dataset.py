@@ -36,17 +36,64 @@ APP_CATEGORY = {
     "sftp": "File Transfer", "rsync": "File Transfer", "scp": "File Transfer",
 }
 
-_NAME = re.compile(r"^(nonvpn|vpn)_(.+?)(?:_capture\d*|_[a-z])?$")
+_NAME = re.compile(r"^(nonvpn|vpn)_(.+)$")
+# Longest first, so e.g. "skype-chat" is tried before any shorter app name.
+_KNOWN_APPS = sorted(APP_CATEGORY, key=len, reverse=True)
 
 
 def parse_name(path):
-    """(VPN label, app, category) from a VNAT file name, or None if it doesn't match."""
+    """(VPN label, app, category) from a VNAT file name, or None if it doesn't match.
+
+    The app is the known app name the rest of the name starts with, whatever
+    follows it: vpn_rdp_capture_3, nonvpn_scp_long_capture1 and
+    nonvpn_sftp_newcapture1 are rdp, scp and sftp.
+    """
     m = _NAME.match(path.stem.lower())
     if not m:
         return None
     vpn = "VPN" if m.group(1) == "vpn" else "Non-VPN"
-    app = m.group(2)
+    rest = m.group(2)
+    app = next((a for a in _KNOWN_APPS if rest == a or rest.startswith(a + "_")),
+               rest.split("_capture")[0])
     return vpn, app, APP_CATEGORY.get(app, "Other")
+
+
+# Label cleaning. Every flow in a capture inherits the label of its file name, but
+# captures also hold traffic that is not the labelled app: in the non-VPN
+# ssh/scp/sftp/rsync captures 86-95% of flows are DNS lookups, and VPN captures
+# contain flows that bypass the tunnel. Left in, the model learns "DNS = Non-VPN"
+# instead of anything about the application. Ports are used only here, to decide
+# which flows are trustworthy examples of their label; they are never features.
+VPN_TUNNEL_PORTS = {1194, 1195}  # OpenVPN (VNAT uses 1195)
+BACKGROUND_PORTS = {
+    53,             # DNS
+    67, 68,         # DHCP
+    123,            # NTP
+    137, 138, 139,  # NetBIOS
+    389,            # LDAP
+    445,            # SMB
+    1900,           # SSDP
+    5353,           # mDNS
+    5355,           # LLMNR
+}
+
+
+def clean_flows(df):
+    """Keep only flows that really are the traffic their label describes.
+
+    VPN captures: only the OpenVPN tunnel. Non-VPN captures: everything except
+    network housekeeping (DNS, DHCP, NTP, NetBIOS, SMB, LDAP, discovery) and the
+    tunnel port. Non-TCP/UDP flows (ICMP etc.) are dropped everywhere.
+    Returns (cleaned DataFrame, per-label table of kept / dropped flows).
+    """
+    ports = df[["src_port", "dst_port"]].apply(pd.to_numeric, errors="coerce")
+    on = lambda port_set: ports.isin(port_set).any(axis=1)
+    tcp_udp = df["protocol"].astype(str).isin(["TCP", "UDP"])
+    vpn = df[LABEL_COL] == "VPN"
+    keep = tcp_udp & ((vpn & on(VPN_TUNNEL_PORTS))
+                      | (~vpn & ~on(BACKGROUND_PORTS) & ~on(VPN_TUNNEL_PORTS)))
+    report = pd.crosstab([df[LABEL_COL], df["app"]], keep.map({True: "kept", False: "dropped"}))
+    return df[keep].reset_index(drop=True), report
 
 
 def process(path, extractor):
@@ -64,6 +111,8 @@ def main():
                         help="iscx: 23 ISCX time-based features (comparable with the ISCX CSV); "
                              "nfstream: 57 NFStream behavioural features")
     parser.add_argument("-j", "--jobs", type=int, default=os.cpu_count(), help="parallel processes")
+    parser.add_argument("--no-clean", action="store_true",
+                        help="keep every flow (DNS, off-tunnel traffic...) instead of label cleaning")
     args = parser.parse_args()
 
     files = sorted(p for p in Path(args.vnat_dir).rglob("*") if p.suffix.lower() in PCAP_SUFFIXES)
@@ -102,6 +151,10 @@ def main():
                 collect(done, futures[future].name, future.result)
 
     data = pd.concat(frames, ignore_index=True)
+    if not args.no_clean:
+        data, report = clean_flows(data)
+        print("\n[INFO] Label cleaning (background / off-tunnel flows dropped):")
+        print(report.to_string())
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     data.to_csv(args.output, index=False)
 

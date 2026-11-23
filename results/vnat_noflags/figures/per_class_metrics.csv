@@ -1,0 +1,9 @@
+model,class,support,TP,FP,FN,TN,precision,recall,f1,FPR
+Logistic Regression,Non-VPN,3138,3138,0,0,2516,1.0,1.0,1.0,0.0
+Logistic Regression,VPN,2516,2516,0,0,3138,1.0,1.0,1.0,0.0
+Random Forest,Non-VPN,3138,3138,0,0,2516,1.0,1.0,1.0,0.0
+Random Forest,VPN,2516,2516,0,0,3138,1.0,1.0,1.0,0.0
+XGBoost,Non-VPN,3138,3138,0,0,2516,1.0,1.0,1.0,0.0
+XGBoost,VPN,2516,2516,0,0,3138,1.0,1.0,1.0,0.0
+FT-Transformer,Non-VPN,3138,3138,0,0,2516,1.0,1.0,1.0,0.0
+FT-Transformer,VPN,2516,2516,0,0,3138,1.0,1.0,1.0,0.0

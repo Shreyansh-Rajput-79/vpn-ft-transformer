@@ -1,0 +1,150 @@
+[INFO] Extracted 230 TCP/UDP flows (nfstream_noflags features) from d:/Vnat/vpn_skype-chat_capture11.pcap
+
+==============================================================================
+ FLOW 1: full pipeline trace
+==============================================================================
+[1] CAPTURE    UDP 10.117.1.1:1195 -> 10.117.1.2:1195
+               40 packets, 17,536 bytes read from vpn_skype-chat_capture11.pcap
+[2] FLOW       NFStream joined both directions into one flow, cut at 15 s:
+               duration 13.38 s, 21 client->server + 19 server->client packets
+[3] FEATURES   identity dropped (IP addresses, ports, timestamps): never model input.
+               33 behavioural features kept (nfstream_noflags):
+[4] PREPROCESS raw value -> sign*log(1+|x|) -> standardised with the TRAINING mean/std
+
+     feature                                 raw      log   scaled  attention
+     bidirectional_duration_ms          13382.00    9.502    0.398       2.9%
+     bidirectional_packets                 40.00    3.714    0.366       3.1%
+     bidirectional_bytes                17536.00    9.772    0.664       3.1%
+     src2dst_duration_ms                13342.00    9.499    0.398       3.1%
+     src2dst_packets                       21.00    3.091    0.378       2.9%
+     src2dst_bytes                       9730.00    9.183    0.868       3.1%
+     dst2src_duration_ms                13380.00    9.502    0.414       3.1%
+     dst2src_packets                       19.00    2.996    0.350       3.0%
+     dst2src_bytes                       7806.00    8.963    0.632       3.1%
+     bidirectional_min_ps                 154.00    5.043    1.053       3.1%
+     bidirectional_mean_ps                438.40    6.085    1.193       3.1%
+     bidirectional_stddev_ps              341.64    5.837    0.855       3.3% <- top-3
+     bidirectional_max_ps                1482.00    7.302    1.314       3.0%
+     src2dst_min_ps                       154.00    5.043    1.029       3.0%
+     src2dst_mean_ps                      463.33    6.141    1.549       3.3% <- top-3
+     src2dst_stddev_ps                    379.21    5.941    1.024       3.0%
+     src2dst_max_ps                      1482.00    7.302    1.583       2.9%
+     dst2src_min_ps                       154.00    5.043    0.854       3.0%
+     dst2src_mean_ps                      410.84    6.021    0.879       2.9%
+     dst2src_stddev_ps                    302.62    5.716    0.880       3.1%
+     dst2src_max_ps                      1482.00    7.302    1.398       3.0%
+     bidirectional_min_piat_ms              0.00    0.000   -0.564       3.2%
+     bidirectional_mean_piat_ms           343.13    5.841    0.067       2.9%
+     bidirectional_stddev_piat_ms         962.10    6.870    0.230       3.0%
+     bidirectional_max_piat_ms           4950.00    8.507    0.447       3.2% <- top-3
+     src2dst_min_piat_ms                    0.00    0.000   -1.197       2.9%
+     src2dst_mean_piat_ms                 667.10    6.504    0.052       3.0%
+     src2dst_stddev_piat_ms              1281.08    7.156    0.559       3.0%
+     src2dst_max_piat_ms                 4950.00    8.507    0.435       2.9%
+     dst2src_min_piat_ms                    0.00    0.000   -1.212       2.9%
+     dst2src_mean_piat_ms                 743.33    6.612    0.106       2.9%
+     dst2src_stddev_piat_ms              1348.86    7.208    0.598       2.9%
+     dst2src_max_piat_ms                 5015.00    8.520    0.440       3.1%
+
+[5] MODEL      FT-Transformer: each of the 33 features -> a 32-number token, plus [CLS] = 34 tokens
+               4 encoder layers x 8 attention heads; [CLS] -> linear layer -> softmax
+               logits:        Non-VPN -4.763, VPN +4.448
+               probabilities: Non-VPN 0.01%, VPN 99.99%
+               verdict: VPN   (model + explanation took 9.3 ms)
+[6] EXPLAIN    attention rollout from [CLS] -> the 3 features the model relied on most,
+               each compared with typical values of each class in the training data:
+
+  VPN (100% confident). What the model looked at most:
+    1. Variation in the packet size: 342 bytes  -> unusual for both, nearer Non-VPN  (typical: VPN 116 bytes, Non-VPN 145 bytes)
+       Its packet sizes varied more than usual: a mix of small control packets and larger data packets.
+    2. Average client->server packet size: 463 bytes  -> unusual for both, nearer VPN  (typical: VPN 278 bytes, Non-VPN 178 bytes)
+       Its packets were larger than usual. This fits the extra wrapping a VPN adds to each packet (or simply a large data transfer).
+    3. Longest gap between packets: 4.95 s  -> points to VPN  (typical: VPN 4.34 s, Non-VPN 3.24 s)
+       Its longest pause was longer than usual: the connection sat idle at times.
+    In short: 2 of 3 clear clues point to VPN; the model weighed them together with the other features.
+    Clearest sign of VPN in this flow (from the training data, not the model's attention):
+       Smallest packet size: 154 bytes  -> points to VPN  (typical: VPN 154 bytes, Non-VPN 40 bytes)
+       Even its smallest packet was large: every packet seems to carry extra bytes. That is what a VPN does: it wraps every packet, even a bare acknowledgement, in extra headers and encryption data.
+
+  Technical form: Classified as VPN (100% confident). Main reasons: (1) the variation in the packet size was 342 bytes, higher than usual for either class, on the Non-VPN side (VPN median 116 bytes, Non-VPN median 145 bytes); (2) the average client->server packet size was 463 bytes, higher than usual for either class, on the VPN side (VPN median 278 bytes, Non-VPN median 178 bytes); (3) the longest gap between packets was 4.95 s, typical of VPN traffic (VPN median 4.34 s, Non-VPN median 3.24 s).
+==============================================================================
+
+
+[RESULT] Flows per class:
+prediction
+VPN    230
+
+[RESULT] First flows:
+    src_ip  src_port     dst_ip  dst_port protocol  packets prediction  confidence                                                                           top_features
+10.117.1.1      1195 10.117.1.2      1195      UDP       40        VPN      0.9999     bidirectional_stddev_ps (3%), src2dst_mean_ps (3%), bidirectional_max_piat_ms (3%)
+10.117.1.1      1195 10.117.1.2      1195      UDP       28        VPN      0.9999 bidirectional_stddev_ps (3%), bidirectional_max_piat_ms (3%), dst2src_duration_ms (3%)
+10.117.1.1      1195 10.117.1.2      1195      UDP       18        VPN      0.9999 bidirectional_stddev_ps (3%), bidirectional_max_piat_ms (3%), dst2src_duration_ms (3%)
+10.117.1.1      1195 10.117.1.2      1195      UDP       23        VPN      0.9999 bidirectional_stddev_ps (3%), bidirectional_max_piat_ms (3%), dst2src_duration_ms (3%)
+10.117.1.1      1195 10.117.1.2      1195      UDP       18        VPN      0.9999 bidirectional_stddev_ps (3%), bidirectional_max_piat_ms (3%), dst2src_duration_ms (3%)
+10.117.1.1      1195 10.117.1.2      1195      UDP       18        VPN      0.9999 bidirectional_stddev_ps (3%), bidirectional_max_piat_ms (3%), dst2src_duration_ms (3%)
+10.117.1.1      1195 10.117.1.2      1195      UDP       31        VPN      0.9999 bidirectional_stddev_ps (3%), bidirectional_max_piat_ms (3%), dst2src_duration_ms (3%)
+10.117.1.2      1195 10.117.1.1      1195      UDP       20        VPN      0.9999 bidirectional_stddev_ps (3%), bidirectional_max_piat_ms (3%), dst2src_duration_ms (3%)
+10.117.1.2      1195 10.117.1.1      1195      UDP       20        VPN      0.9999 bidirectional_stddev_ps (3%), bidirectional_max_piat_ms (3%), dst2src_duration_ms (3%)
+10.117.1.2      1195 10.117.1.1      1195      UDP       29        VPN      0.9999 bidirectional_stddev_ps (3%), bidirectional_max_piat_ms (3%), dst2src_duration_ms (3%)
+
+[RESULT] Reasons (first 5 flows):
+
+  flow 1: VPN (100% confident). What the model looked at most:
+  1. Variation in the packet size: 342 bytes  -> unusual for both, nearer Non-VPN  (typical: VPN 116 bytes, Non-VPN 145 bytes)
+     Its packet sizes varied more than usual: a mix of small control packets and larger data packets.
+  2. Average client->server packet size: 463 bytes  -> unusual for both, nearer VPN  (typical: VPN 278 bytes, Non-VPN 178 bytes)
+     Its packets were larger than usual. This fits the extra wrapping a VPN adds to each packet (or simply a large data transfer).
+  3. Longest gap between packets: 4.95 s  -> points to VPN  (typical: VPN 4.34 s, Non-VPN 3.24 s)
+     Its longest pause was longer than usual: the connection sat idle at times.
+  In short: 2 of 3 clear clues point to VPN; the model weighed them together with the other features.
+  Clearest sign of VPN in this flow (from the training data, not the model's attention):
+     Smallest packet size: 154 bytes  -> points to VPN  (typical: VPN 154 bytes, Non-VPN 40 bytes)
+     Even its smallest packet was large: every packet seems to carry extra bytes. That is what a VPN does: it wraps every packet, even a bare acknowledgement, in extra headers and encryption data.
+
+  flow 2: VPN (100% confident). What the model looked at most:
+  1. Variation in the packet size: 152 bytes  -> points to Non-VPN  (typical: VPN 116 bytes, Non-VPN 145 bytes)
+     Its packet sizes varied more than usual: a mix of small control packets and larger data packets.
+  2. Longest gap between packets: 2.68 s  -> points to Non-VPN  (typical: VPN 4.34 s, Non-VPN 3.24 s)
+     Its longest pause was shorter than usual: the connection stayed fairly busy.
+  3. Server->client duration: 14.4 s  -> no class signal  (typical: VPN 12.1 s, Non-VPN 11.6 s)
+     The connection lasted longer than usual. Both classes are alike here, so this says little about the class.
+  In short: None of these clues on its own points to VPN: the decision comes from how the features combine, so treat it with care.
+  Clearest sign of VPN in this flow (from the training data, not the model's attention):
+     Smallest packet size: 154 bytes  -> points to VPN  (typical: VPN 154 bytes, Non-VPN 40 bytes)
+     Even its smallest packet was large: every packet seems to carry extra bytes. That is what a VPN does: it wraps every packet, even a bare acknowledgement, in extra headers and encryption data.
+
+  flow 3: VPN (100% confident). What the model looked at most:
+  1. Variation in the packet size: 131 bytes  -> points to Non-VPN  (typical: VPN 116 bytes, Non-VPN 145 bytes)
+     Its packet sizes varied more than usual: a mix of small control packets and larger data packets.
+  2. Longest gap between packets: 3.81 s  -> points to VPN  (typical: VPN 4.34 s, Non-VPN 3.24 s)
+     Its longest pause was longer than usual: the connection sat idle at times.
+  3. Server->client duration: 11.2 s  -> weak clue  (typical: VPN 12.1 s, Non-VPN 11.6 s)
+     Close to typical traffic of both classes, so on its own this is a weak clue.
+  In short: 1 of 2 clear clues point to VPN; the model weighed them together with the other features.
+  Clearest sign of VPN in this flow (from the training data, not the model's attention):
+     Smallest packet size: 154 bytes  -> points to VPN  (typical: VPN 154 bytes, Non-VPN 40 bytes)
+     Even its smallest packet was large: every packet seems to carry extra bytes. That is what a VPN does: it wraps every packet, even a bare acknowledgement, in extra headers and encryption data.
+
+  flow 4: VPN (100% confident). What the model looked at most:
+  1. Variation in the packet size: 153 bytes  -> points to Non-VPN  (typical: VPN 116 bytes, Non-VPN 145 bytes)
+     Its packet sizes varied more than usual: a mix of small control packets and larger data packets.
+  2. Longest gap between packets: 3.82 s  -> points to VPN  (typical: VPN 4.34 s, Non-VPN 3.24 s)
+     Its longest pause was longer than usual: the connection sat idle at times.
+  3. Server->client duration: 11.2 s  -> weak clue  (typical: VPN 12.1 s, Non-VPN 11.6 s)
+     Close to typical traffic of both classes, so on its own this is a weak clue.
+  In short: 1 of 2 clear clues point to VPN; the model weighed them together with the other features.
+  Clearest sign of VPN in this flow (from the training data, not the model's attention):
+     Smallest packet size: 154 bytes  -> points to VPN  (typical: VPN 154 bytes, Non-VPN 40 bytes)
+     Even its smallest packet was large: every packet seems to carry extra bytes. That is what a VPN does: it wraps every packet, even a bare acknowledgement, in extra headers and encryption data.
+
+  flow 5: VPN (100% confident). What the model looked at most:
+  1. Variation in the packet size: 148 bytes  -> points to Non-VPN  (typical: VPN 116 bytes, Non-VPN 145 bytes)
+     Its packet sizes varied more than usual: a mix of small control packets and larger data packets.
+  2. Longest gap between packets: 4.83 s  -> points to VPN  (typical: VPN 4.34 s, Non-VPN 3.24 s)
+     Its longest pause was longer than usual: the connection sat idle at times.
+  3. Server->client duration: 10.2 s  -> no class signal  (typical: VPN 12.1 s, Non-VPN 11.6 s)
+     The connection was shorter than usual. Both classes are alike here, so this says little about the class.
+  In short: 1 of 2 clear clues point to VPN; the model weighed them together with the other features.
+  Clearest sign of VPN in this flow (from the training data, not the model's attention):
+     Smallest packet size: 154 bytes  -> points to VPN  (typical: VPN 154 bytes, Non-VPN 40 bytes)
+     Even its smallest packet was large: every packet seems to carry extra bytes. That is what a VPN does: it wraps every packet, even a bare acknowledgement, in extra headers and encryption data.

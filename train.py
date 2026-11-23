@@ -8,8 +8,8 @@ import torch
 from sklearn.metrics import classification_report, confusion_matrix
 
 from utils.narrate import class_medians
-from utils.preprocessing import (LABEL_COL, fit_standardizer, prepare_dataset,
-                                 split_indices, standardize)
+from utils.preprocessing import (FEATURE_SETS, LABEL_COL, fit_standardizer,
+                                 prepare_dataset, split_indices, standardize)
 from utils.training import (BATCH_SIZE, EPOCHS, LR, MODEL_CONFIG, device,
                             predict_proba, train_ft_transformer)
 
@@ -23,6 +23,9 @@ parser.add_argument("--label-col", default=LABEL_COL,
 parser.add_argument("--group-col", default=None,
                     help="split by this column (e.g. source_file) so flows from one capture "
                          "never appear in both train and test")
+parser.add_argument("--feature-set", default=None, choices=sorted(FEATURE_SETS),
+                    help="default: detected from the CSV. nfstream_noflags = NFStream "
+                         "without TCP-flag counts (no protocol shortcut)")
 parser.add_argument("--config", default=None,
                     help="JSON with model hyperparameters, e.g. results/tuning/best_config.json")
 parser.add_argument("--batch-size", type=int, default=None)
@@ -43,7 +46,7 @@ batch_size = args.batch_size or batch_size
 # ==========================================
 print("[INFO] Loading dataset...")
 
-data = prepare_dataset(args.data, args.label_col)
+data = prepare_dataset(args.data, args.label_col, args.feature_set)
 classes, y, Z = data["classes"], data["y"], data["Z"]
 
 print(f"[INFO] {len(Z)} unique flows, {Z.shape[1]} {data['feature_set']} features, "

@@ -12,7 +12,15 @@ Usage:
 
 Outputs (in --out, default results/):
     per_seed_metrics.csv     raw metrics for every model and seed
-    summary.md               result tables + confusion matrices
+    per_unit_accuracy.csv    test accuracy per model and capture file (or flow), for the tests below
+    significance.csv         FT-Transformer vs each baseline: paired test
+    summary.md               result tables, significance tests, confusion matrices
+
+Significance: each test capture file (each flow when there is no --group-col) is
+one unit, its accuracy averaged over the seeds in which it was in the test split.
+Flows from one capture are not independent, so the capture is the unit. Models
+are compared on the same units with a Wilcoxon signed-rank test, Holm-corrected
+for the number of baselines, plus a bootstrap 95% CI of the mean difference.
 """
 # ==========================================
 # 1. Imports
@@ -24,14 +32,15 @@ import time
 
 import numpy as np
 import pandas as pd
+from scipy.stats import wilcoxon
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score,
                              precision_score, recall_score, roc_auc_score)
 from xgboost import XGBClassifier
 
-from utils.preprocessing import (LABEL_COL, fit_standardizer, prepare_dataset,
-                                 split_indices, standardize)
+from utils.preprocessing import (FEATURE_SETS, LABEL_COL, fit_standardizer,
+                                 prepare_dataset, split_indices, standardize)
 from utils.training import device, predict_proba, train_ft_transformer
 
 SEEDS = [0, 1, 2, 3, 42]
@@ -139,6 +148,8 @@ def main():
                         help="split by this column (e.g. source_file) instead of by flow")
     parser.add_argument("--label-col", default=LABEL_COL,
                         help="class1 (VPN / Non-VPN, default), or category / app for VNAT")
+    parser.add_argument("--feature-set", default=None, choices=sorted(FEATURE_SETS),
+                        help="default: detected from the CSV; nfstream_noflags drops TCP-flag counts")
     parser.add_argument("--config", default=None, help="tuned FT-Transformer settings (tune.py)")
     parser.add_argument("--out", default=OUT_DIR)
     args = parser.parse_args()
@@ -147,21 +158,24 @@ def main():
         DATASET_NAME = os.path.basename(args.data)
     if args.label_col != LABEL_COL:
         DATASET_NAME += f", label: {args.label_col}"
+    if args.feature_set:
+        DATASET_NAME += f", features: {args.feature_set}"
     if args.config:
         FTTransformerModel.tuned = json.load(open(args.config))
     os.makedirs(OUT_DIR, exist_ok=True)
 
-    data = prepare_dataset(args.data, args.label_col)
+    data = prepare_dataset(args.data, args.label_col, args.feature_set)
     classes, y, Z = data["classes"], data["y"], data["Z"]
     groups = data["df"][args.group_col].to_numpy() if args.group_col else None
 
     print(f"[INFO] {len(Z)} flows, {Z.shape[1]} {data['feature_set']} features, "
           f"{len(classes)} classes, seeds: {SEEDS}")
 
-    rows, confusions = [], {}
+    rows, confusions, unit_records = [], {}, []
 
     for seed in SEEDS:
         tr, va, te = split_indices(y, seed=seed, groups=groups)
+        units = groups[te] if groups is not None else te
         mean, std = fit_standardizer(Z[tr])
         X_train, X_val, X_test = (standardize(Z[i], mean, std) for i in (tr, va, te))
         y_train, y_val, y_test = y[tr], y[va], y[te]
@@ -184,6 +198,8 @@ def main():
                    "inference_us_per_flow": infer_us,
                    "size": model.num_params()}
             rows.append(row)
+            unit_records.append(pd.DataFrame({"model": name, "seed": seed, "unit": units,
+                                              "correct": proba.argmax(1) == y_test}))
 
             if seed == SEEDS[-1]:
                 confusions[name] = confusion_matrix(y_test, proba.argmax(1), labels=range(len(classes)))
@@ -193,7 +209,65 @@ def main():
 
     results = pd.DataFrame(rows)
     results.to_csv(f"{OUT_DIR}/per_seed_metrics.csv", index=False)
-    write_summary(results, confusions, classes)
+    unit_acc = per_unit_accuracy(pd.concat(unit_records, ignore_index=True))
+    unit_acc.to_csv(f"{OUT_DIR}/per_unit_accuracy.csv")
+    sig = significance(unit_acc, results, unit_name="capture file" if groups is not None else "flow")
+    sig.to_csv(f"{OUT_DIR}/significance.csv", index=False)
+    write_summary(results, confusions, classes, sig, len(unit_acc),
+                  "capture files" if groups is not None else "flows")
+
+# ==========================================
+# 4. Significance (FT-Transformer vs each baseline)
+# ==========================================
+REFERENCE = "FT-Transformer"
+ALPHA = 0.05
+
+
+def per_unit_accuracy(records):
+    """Units x models: accuracy of each model on each unit, averaged over the seeds
+    in which that unit was in the test split. Every model sees the same units."""
+    per_seed = records.groupby(["unit", "seed", "model"]).correct.mean()
+    return per_seed.groupby(["unit", "model"]).mean().unstack("model")[list(MODELS)]
+
+
+def holm(pvalues):
+    """Holm-Bonferroni adjusted p-values (same order as the input)."""
+    p = np.asarray(pvalues, dtype=float)
+    order = np.argsort(p)
+    adjusted = np.empty_like(p)
+    running = 0.0
+    for rank, i in enumerate(order):
+        running = max(running, min(1.0, (len(p) - rank) * p[i]))
+        adjusted[i] = running
+    return adjusted
+
+
+def significance(unit_acc, results, unit_name, n_boot=5000, seed=0):
+    rng = np.random.default_rng(seed)
+    per_seed = results.pivot(index="seed", columns="model", values="accuracy")
+    rows = []
+    for baseline in [m for m in MODELS if m != REFERENCE]:
+        diff = (unit_acc[REFERENCE] - unit_acc[baseline]).to_numpy()
+        boot = rng.choice(diff, size=(n_boot, len(diff))).mean(axis=1)
+        nonzero = np.count_nonzero(diff)
+        p = wilcoxon(diff, zero_method="wilcox").pvalue if nonzero else 1.0
+        seed_diff = per_seed[REFERENCE] - per_seed[baseline]
+        rows.append({
+            "comparison": f"{REFERENCE} - {baseline}",
+            f"mean_diff_per_{unit_name.replace(' ', '_')}": diff.mean(),
+            "ci95_low": np.percentile(boot, 2.5), "ci95_high": np.percentile(boot, 97.5),
+            "units_better": int((diff > 0).sum()), "units_worse": int((diff < 0).sum()),
+            "units_tied": int((diff == 0).sum()),
+            "p_wilcoxon": p,
+            "seed_diff_mean": seed_diff.mean(), "seed_diff_std": seed_diff.std(),
+        })
+    sig = pd.DataFrame(rows)
+    sig["p_holm"] = holm(sig.p_wilcoxon)
+    sig["verdict"] = [
+        "no significant difference" if p >= ALPHA
+        else (f"{REFERENCE} better" if d > 0 else f"{REFERENCE} worse")
+        for p, d in zip(sig.p_holm, sig.iloc[:, 1])]
+    return sig
 
 # ==========================================
 # 4. Reporting
@@ -206,7 +280,32 @@ def table(results, columns, fmt):
     return cells.to_markdown()
 
 
-def write_summary(results, confusions, classes):
+def significance_table(sig, n_units, unit_label):
+    t = pd.DataFrame({
+        "comparison": sig.comparison,
+        "mean acc. diff per unit (pp)": (sig.iloc[:, 1] * 100).map("{:+.2f}".format),
+        "95% CI (pp)": [f"[{lo*100:+.2f}, {hi*100:+.2f}]" for lo, hi in zip(sig.ci95_low, sig.ci95_high)],
+        "units better / worse / tied": [f"{b} / {w} / {t}" for b, w, t in
+                                        zip(sig.units_better, sig.units_worse, sig.units_tied)],
+        "p (Wilcoxon)": sig.p_wilcoxon.map("{:.3g}".format),
+        "p (Holm)": sig.p_holm.map("{:.3g}".format),
+        "per-seed acc. diff (pp)": [f"{m*100:+.2f} ± {s*100:.2f}" for m, s in
+                                    zip(sig.seed_diff_mean, sig.seed_diff_std)],
+        "verdict": sig.verdict,
+    })
+    return "\n\n".join([
+        "## Is the difference real? (FT-Transformer vs each baseline)",
+        f"Paired over {n_units} test {unit_label}: each unit's accuracy is averaged over the "
+        f"seeds in which it was in the test split, and every model is scored on the same units. "
+        f"Positive = FT-Transformer more accurate. Wilcoxon signed-rank test, Holm-corrected for "
+        f"{len(sig)} comparisons, significance level {ALPHA}. The CI is a bootstrap over units. "
+        f"Per-unit accuracy weights every {unit_label[:-1]} equally, so it can differ from the "
+        f"flow-level accuracy in the first table.",
+        t.to_markdown(index=False, disable_numparse=True),  # keep "+0.05" as written
+    ])
+
+
+def write_summary(results, confusions, classes, sig=None, n_units=0, unit_label="units"):
     pct = lambda m, s: f"{m*100:.2f} ± {s*100:.2f}"
 
     main_cols = [c for c in ["accuracy", "precision_macro", "recall_macro", "f1_macro",
@@ -219,6 +318,7 @@ def write_summary(results, confusions, classes):
         f"Mean ± std over {len(SEEDS)} seeds (70/15/15 split per seed). Values in %.",
         "## Test-set performance",
         table(results, main_cols, pct),
+        *([significance_table(sig, n_units, unit_label)] if sig is not None else []),
         "## Robustness (test accuracy under perturbed features)",
         "`noise_σ`: Gaussian noise added to standardized features. "
         "`missing_r`: fraction of feature values replaced by the training mean.",

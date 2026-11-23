@@ -1,0 +1,76 @@
+seed,model,attack,eps,evasion
+0,FT-Transformer,Black-box random search,0.05,0.5563238259867473
+0,FT-Transformer,White-box PGD,0.05,0.3923941227312014
+0,FT-Transformer,Black-box random search,0.1,0.7502160760587727
+0,FT-Transformer,White-box PGD,0.1,0.45980985306828004
+0,FT-Transformer,Black-box random search,0.25,0.9743589743589743
+0,FT-Transformer,White-box PGD,0.25,0.7902621722846442
+0,FT-Transformer,Black-box random search,0.5,1.0
+0,FT-Transformer,White-box PGD,0.5,0.9553442811869778
+0,FT-Transformer,Black-box random search,1.0,1.0
+0,FT-Transformer,White-box PGD,1.0,0.9769518870642466
+0,Random Forest,Black-box random search,0.05,0.8340511053689348
+0,Random Forest,Black-box random search,0.1,0.9592305483778352
+0,Random Forest,Black-box random search,0.25,0.9968418030433535
+0,Random Forest,Black-box random search,0.5,1.0
+0,Random Forest,Black-box random search,1.0,1.0
+1,FT-Transformer,Black-box random search,0.05,0.8674435542607429
+1,FT-Transformer,White-box PGD,0.05,0.7002913328477786
+1,FT-Transformer,Black-box random search,0.1,0.9482884195193008
+1,FT-Transformer,White-box PGD,0.1,0.6456664238892935
+1,FT-Transformer,Black-box random search,0.25,0.9916241806263656
+1,FT-Transformer,White-box PGD,0.25,0.9231609613983977
+1,FT-Transformer,Black-box random search,0.5,1.0
+1,FT-Transformer,White-box PGD,0.5,0.9978150036416606
+1,FT-Transformer,Black-box random search,1.0,1.0
+1,FT-Transformer,White-box PGD,1.0,0.9992716678805535
+1,Random Forest,Black-box random search,0.05,0.9472535467442706
+1,Random Forest,Black-box random search,0.1,0.9869043288468534
+1,Random Forest,Black-box random search,0.25,0.9992724627137141
+1,Random Forest,Black-box random search,0.5,1.0
+1,Random Forest,Black-box random search,1.0,1.0
+2,FT-Transformer,Black-box random search,0.05,0.6027694814010318
+2,FT-Transformer,White-box PGD,0.05,0.4580505023079012
+2,FT-Transformer,Black-box random search,0.1,0.9223459136573445
+2,FT-Transformer,White-box PGD,0.1,0.6698343741515069
+2,FT-Transformer,Black-box random search,0.25,0.9913114308987239
+2,FT-Transformer,White-box PGD,0.25,0.8756448547379854
+2,FT-Transformer,Black-box random search,0.5,1.0
+2,FT-Transformer,White-box PGD,0.5,0.9907683953298941
+2,FT-Transformer,Black-box random search,1.0,1.0
+2,FT-Transformer,White-box PGD,1.0,0.9991854466467553
+2,Random Forest,Black-box random search,0.05,0.8796747967479674
+2,Random Forest,Black-box random search,0.1,0.9355013550135501
+2,Random Forest,Black-box random search,0.25,0.9981029810298103
+2,Random Forest,Black-box random search,0.5,1.0
+2,Random Forest,Black-box random search,1.0,1.0
+3,FT-Transformer,Black-box random search,0.05,0.9296615792966157
+3,FT-Transformer,White-box PGD,0.05,0.683477106834771
+3,FT-Transformer,Black-box random search,0.1,0.9737889847378899
+3,FT-Transformer,White-box PGD,0.1,0.7398805573988055
+3,FT-Transformer,Black-box random search,0.25,0.9996682149966821
+3,FT-Transformer,White-box PGD,0.25,0.9986728599867286
+3,FT-Transformer,Black-box random search,0.5,1.0
+3,FT-Transformer,White-box PGD,0.5,0.995686794956868
+3,FT-Transformer,Black-box random search,1.0,1.0
+3,FT-Transformer,White-box PGD,1.0,0.993364299933643
+3,Random Forest,Black-box random search,0.05,0.9685742639761826
+3,Random Forest,Black-box random search,0.1,0.9930532583526298
+3,Random Forest,Black-box random search,0.25,1.0
+3,Random Forest,Black-box random search,0.5,1.0
+3,Random Forest,Black-box random search,1.0,1.0
+42,FT-Transformer,Black-box random search,0.05,0.7279867713931376
+42,FT-Transformer,White-box PGD,0.05,0.3468375361719719
+42,FT-Transformer,Black-box random search,0.1,0.930549813972716
+42,FT-Transformer,White-box PGD,0.1,0.5791649441918147
+42,FT-Transformer,Black-box random search,0.25,0.9851178172798677
+42,FT-Transformer,White-box PGD,0.25,0.9801570897064903
+42,FT-Transformer,Black-box random search,0.5,1.0
+42,FT-Transformer,White-box PGD,0.5,0.9975196362133113
+42,FT-Transformer,Black-box random search,1.0,1.0
+42,FT-Transformer,White-box PGD,1.0,0.9995866060355518
+42,Random Forest,Black-box random search,0.05,0.9168684422921711
+42,Random Forest,Black-box random search,0.1,0.9741727199354318
+42,Random Forest,Black-box random search,0.25,0.9995964487489911
+42,Random Forest,Black-box random search,0.5,1.0
+42,Random Forest,Black-box random search,1.0,1.0

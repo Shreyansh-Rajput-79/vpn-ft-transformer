@@ -34,7 +34,12 @@ writes every comparison, explainability, security and cross-dataset report to
 | `security_eval.py` | Traffic-shaping and feature-space evasion attacks, shaping-augmentation defense, 5 seeds |
 | `tune.py` | Random hyperparameter search for the FT-Transformer (validation split only) |
 | `cross_dataset.py` | Train on one dataset, test on another (ISCX <-> VNAT) |
-| `predict.py` | Classify a pcap or CSV. `--explain` (top features + a plain-language reason per flow), `--by-device` (hotspot demo) |
+| `predict.py` | Classify a pcap or CSV. `--explain` (top features + a plain-language reason per flow), `--trace N` (every pipeline stage for N flows), `--by-device` (hotspot demo) |
+| `predict_live.py` | Classify and explain live traffic from a network interface. `--list`, `-i Wi-Fi`, `--trace N`, `-o live.csv` |
+| `score_captures.py` | Accuracy on your own labelled captures (VPN on / off) |
+| `metrics_figures.py` | ROC / PR curves, confusion matrices, per-class TP / FP / FN / TN for a results folder |
+
+Final write-up: `results/FINAL_RESULTS.md`.
 
 `--group-col source_file` splits by capture file so flows from one recording
 never appear in both train and test. Always use it for VNAT.

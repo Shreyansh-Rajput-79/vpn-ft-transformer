@@ -20,6 +20,10 @@ import pandas as pd
 from utils.preprocessing import FEATURES, NFSTREAM_FEATURES
 
 FLOW_TIMEOUT_US = 15_000_000
+# NFStream worker processes. Its default is one per core; on Windows each worker
+# re-imports the calling script, and 32 copies of torch (predict.py,
+# score_captures.py) run out of memory and hang. Affects speed only, not flows.
+NFSTREAM_METERS = 2
 ACTIVITY_TIMEOUT_US = 1_000_000
 
 _DLT_NULL, _DLT_EN10MB, _DLT_RAW, _DLT_LOOP, _DLT_LINUX_SLL = 0, 1, 101, 108, 113
@@ -175,8 +179,12 @@ def pcap_to_df(pcap_file):
     return pd.DataFrame(rows, columns=columns).sort_values("start_time", ignore_index=True)
 
 
-def pcap_to_df_nfstream(pcap_file, idle_timeout=120, active_timeout=1800):
+def pcap_to_df_nfstream(pcap_file, idle_timeout=120, active_timeout=FLOW_TIMEOUT_US // 1_000_000):
     """Split a capture into flows with NFStream and keep its behavioural features.
+
+    Flows are cut 15 s after their first packet, like the ISCX extractor. With
+    NFStream's default 30 min cut, a VPN capture (one long OpenVPN tunnel)
+    becomes about two flows: on VNAT that left 1.4% of flows labelled VPN.
 
     Returns the same flow identifiers as pcap_to_df plus every column in
     NFSTREAM_FEATURES. Identifier columns are for reporting only; the model
@@ -184,7 +192,7 @@ def pcap_to_df_nfstream(pcap_file, idle_timeout=120, active_timeout=1800):
     """
     from nfstream import NFStreamer
 
-    df = NFStreamer(source=str(pcap_file), statistical_analysis=True,
+    df = NFStreamer(source=str(pcap_file), statistical_analysis=True, n_meters=NFSTREAM_METERS,
                     idle_timeout=idle_timeout, active_timeout=active_timeout).to_pandas()
     if df.empty:
         return pd.DataFrame(columns=["src_ip", "src_port", "dst_ip", "dst_port", "protocol",
@@ -201,3 +209,5 @@ def pcap_to_df_nfstream(pcap_file, idle_timeout=120, active_timeout=1800):
 
 
 EXTRACTORS = {"iscx": pcap_to_df, "nfstream": pcap_to_df_nfstream}
+# Feature set -> extractor that produces its columns (prediction on raw captures).
+EXTRACTOR_FOR = {"iscx": "iscx", "nfstream": "nfstream", "nfstream_noflags": "nfstream"}

@@ -1,6 +1,11 @@
 import numpy as np
 import pandas as pd
 
+# pandas 3 stores text columns with pyarrow by default. On Windows that segfaults
+# (no traceback) when torch was imported first: train.py died reading the CSV.
+# Classic object-dtype strings, as in pandas 2, avoid it.
+pd.options.future.infer_string = False
+
 LABEL_COL = "class1"
 
 # The ISCX VPN-nonVPN 2016 time-based CSVs have shifted headers in the fiat/biat
@@ -42,7 +47,17 @@ NFSTREAM_FEATURES = (
        for flag in ("syn", "cwr", "ece", "urg", "ack", "psh", "rst", "fin")]
 )
 
-FEATURE_SETS = {"iscx": FEATURES, "nfstream": NFSTREAM_FEATURES}
+# NFStream without the TCP-flag counts. In VNAT every VPN flow is OpenVPN over
+# UDP, so flag counts are always 0 for VPN and the model learns "has TCP flags =>
+# Non-VPN": a protocol shortcut that misses any VPN running over TCP. This set
+# keeps sizes, gaps, counts and duration only. Chosen explicitly (--feature-set),
+# never auto-detected, since every column it needs is also in "nfstream".
+NFSTREAM_NOFLAGS_FEATURES = [f for f in NFSTREAM_FEATURES if not f.endswith(
+    tuple(f"_{flag}_packets" for flag in ("syn", "cwr", "ece", "urg", "ack", "psh", "rst", "fin")))]
+
+FEATURE_SETS = {"iscx": FEATURES, "nfstream": NFSTREAM_FEATURES,
+                "nfstream_noflags": NFSTREAM_NOFLAGS_FEATURES}
+AUTO_DETECT = ("iscx", "nfstream")
 
 LABEL_MAP = {
     "NonVPN": "Non-VPN",
@@ -60,8 +75,8 @@ def fix_iscx_headers(df):
 
 def detect_feature_set(df):
     """'iscx' or 'nfstream', whichever feature set the DataFrame contains."""
-    for name, features in FEATURE_SETS.items():
-        if all(c in df.columns for c in features):
+    for name in AUTO_DETECT:
+        if all(c in df.columns for c in FEATURE_SETS[name]):
             return name
     raise ValueError("Input has neither the ISCX nor the NFStream feature columns.")
 
@@ -145,14 +160,15 @@ def split_indices(y, seed=42, groups=None):
     return tr, va, te
 
 
-def prepare_dataset(path, label_col=LABEL_COL):
+def prepare_dataset(path, label_col=LABEL_COL, feature_set=None):
     """Load a feature CSV and everything the scripts need from it.
 
+    feature_set: a key of FEATURE_SETS (e.g. "nfstream_noflags"); default: detected.
     Returns a dict with: df, classes, y (class indices), features, feature_set,
     Z (signed-log feature matrix, not yet standardized).
     """
     df, labels = load_dataset(path, label_col)
-    feature_set = detect_feature_set(df)
+    feature_set = feature_set or detect_feature_set(df)
     features = FEATURE_SETS[feature_set]
     classes = sorted(labels.unique())
     y = labels.map({c: i for i, c in enumerate(classes)}).to_numpy()
