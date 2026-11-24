@@ -52,13 +52,16 @@ Every number below comes from a `summary.md` in `results/`; the source folder is
 
 The large ± comes from the file-level split: VoIP has 6 capture files, so one test recording swings every model together. The paired test below removes this.
 
-### ISCX 2016, VPN vs Non-VPN (`results/summary.md`)
+### ISCX 2016, VPN vs Non-VPN (`results/iscx_xgb/summary.md`, re-run with XGBoost)
 
 | Model | Accuracy | ROC-AUC |
 |---|---|---|
-| Logistic Regression | 67.32 ± 0.76 | 72.73 ± 0.49 |
-| Random Forest | **92.40 ± 0.57** | 97.62 ± 0.30 |
-| FT-Transformer | 90.83 ± 0.31 | 97.02 ± 0.19 |
+| Logistic Regression | 67.29 ± 0.76 | 72.73 ± 0.49 |
+| Random Forest | 92.40 ± 0.57 | 97.62 ± 0.30 |
+| XGBoost | **93.32 ± 0.72** | **98.40 ± 0.20** |
+| FT-Transformer | 90.64 ± 0.83 | 96.90 ± 0.47 |
+
+Paired over test flows (Wilcoxon, Holm): FT-Transformer − XGBoost −2.72 pp, − Random Forest −1.78 pp (both significant), − Logistic Regression +23.33 pp. The earlier run without XGBoost (`results/summary.md`) gave FT-Transformer 90.83 ± 0.31; the difference is run-to-run GPU nondeterminism.
 
 ### Is the difference real? FT-Transformer minus baseline, per test capture file
 

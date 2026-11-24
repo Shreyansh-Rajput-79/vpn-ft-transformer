@@ -108,6 +108,11 @@ Result in our test: classified **Non-VPN** (missed). The explanation shows why: 
 small control packets (76 bytes) never occur in VNAT's OpenVPN traffic. See
 `results/FINAL_RESULTS.md`, section 8.
 
+**Traffic-shaping demo (no capture needed, ~20 s):** `python tools/demo_shaping.py` slows
+VPN flows from unseen test recordings to half speed and shows how many fool the Random Forest
+vs the FT-Transformer, with one example flow before and after. `--slowdown 3` for other budgets.
+One split only, so numbers differ slightly from the 5-seed averages in section 6 of the write-up.
+
 ## 4. Which model to use
 
 | File | Task | Features |
@@ -163,6 +168,7 @@ both train and test. Always use it for VNAT.
 | `metrics_figures.py` | ROC / PR curves, confusion matrices, per-class TP / FP / FN / TN |
 | `explain.py` | Attention explanations, TreeSHAP on Random Forest, faithfulness (deletion test) |
 | `security_eval.py` | Traffic-shaping and feature-space evasion attacks, augmentation defence |
+| `tools/demo_shaping.py` | Quick demo: slow VPN flows down, compare Random Forest vs FT-Transformer evasion |
 | `cross_dataset.py` | Train on one dataset, test on the other (ISCX ↔ VNAT) |
 | `tune.py` | Hyperparameter search (validation split only) |
 | `build_vnat_dataset.py` | VNAT pcaps → cleaned feature CSV |
